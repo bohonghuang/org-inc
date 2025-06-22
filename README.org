@@ -1,0 +1,33 @@
+#+TITLE: Org-inc
+Org Incremental Learning
+* Introduction
+Org-inc replicates the incremental learning process in SuperMemo,
+building upon [[https://github.com/bohonghuang/org-srs][Org-srs]].
+* Installation
+#+BEGIN_SRC emacs-lisp
+  (use-package org-inc
+    :vc (:url "https://github.com/bohonghuang/org-inc.git" :rev "HEAD")
+    :defer t
+    :hook (org-mode . org-inc-overlay-mode) (org-mode . org-inc-cache-mode)
+    :bind (:map org-mode-map ("C-M-<return>" . org-inc-continue))
+    :custom
+    (org-inc-directory (expand-file-name "org-inc/" org-directory))
+    (org-srs-item-confirm #'org-srs-item-confirm-command))
+#+END_SRC
+* Usage
+1. Execute the command ~org-inc-create~ on the reading material in an
+   entry, then select ~topic~ (the created topic will be scheduled for
+   review the following day).
+2. Optionally, set the priority using ~org-inc-priority~.
+3. Begin your learning session with ~org-inc-continue~.
+4. Once you start learning:
+   - While reading a topic, use ~org-inc-extract~ to extract text and
+     create associated topics or ratable items. If:
+     - You have completed the text extraction and do not wish to see
+       this topic again in the future, use ~org-inc-dismiss~ to ignore
+       it.
+     - Otherwise, use ~org-inc-continue~ to proceed to the next item.
+   - On ratable items, use ~org-inc-continue~ to display the rating menu
+     and perform the rating.
+5. You can complete all due items or exit the learning session at any
+   time using ~org-inc-abort~.
