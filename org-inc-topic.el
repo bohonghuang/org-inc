@@ -134,19 +134,25 @@
       (cl-multiple-value-bind (id marker)
           (save-mark-and-excursion
             (let* ((level (org-current-level))
-                   (priority (org-inc-priority))
+                   (priority (or (org-inc-priority)
+                                 (org-inc-priority-between
+                                  (cl-loop for (priority) in (org-inc-priorities)
+                                           maximize priority)
+                                  org-inc-priority-max)))
                    (a-factor (org-inc-topic-a-factor))
                    (a-factor-child (org-inc-a-factor-child a-factor))
                    (a-factor-parent (org-inc-a-factor-parent a-factor))
                    (timestamp (org-srs-item-with-current ('topic)
                                 (prog2 (org-srs-table-goto-starred-line)
-                                    (alist-get
-                                     'timestamp
-                                     (org-srs-algorithm-repeat
-                                      'topic
-                                      (cons (cons 'a-factor a-factor)
-                                            (mapcar (apply-partially #'cons 'timestamp)
-                                                    (cl-multiple-value-list (org-inc-topic-review-timestamps))))))
+                                    (if (org-srs-timestamp= (org-srs-table-field 'timestamp) org-inc-dismiss-timestamp)
+                                        (org-srs-timestamp+ (org-srs-timestamp-now) 1 :day)
+                                      (alist-get
+                                       'timestamp
+                                       (org-srs-algorithm-repeat
+                                        'topic
+                                        (cons (cons 'a-factor a-factor)
+                                              (mapcar (apply-partially #'cons 'timestamp)
+                                                      (cl-multiple-value-list (org-inc-topic-review-timestamps)))))))
                                   (org-inc-log-new-record :action :extract :a-factor a-factor-parent)))))
               (org-end-of-subtree t t)
               (org-insert-heading nil t (1+ level))
@@ -165,7 +171,7 @@
                        (org-inc-priority-set
                         (org-inc-topic-child-priority
                          (org-inc-priority-percentage
-                          (cl-position priority priorities :key #'car)
+                          (or (cl-position priority priorities :key #'car) (1- (length priorities)))
                           (length priorities)))
                         priorities))
                      (org-srs-log-hide-drawer)))
@@ -214,7 +220,7 @@ TYPE is the new type to which the current item will be converted."
          (cl-assert (not (eq type 'topic)))
          (org-srs-table-goto-starred-line)
          (let* ((args (cl-acons
-                       'a-factor (min (save-excursion (forward-line -1) (org-srs-table-ensure-read-field (org-srs-table-field 'a-factor))) 1.0)
+                       'a-factor (save-excursion (forward-line -1) (org-srs-table-ensure-read-field (org-srs-table-field 'a-factor)))
                        (mapcar (apply-partially #'cons 'timestamp)
                                (cl-multiple-value-list (org-inc-topic-review-timestamps)))))
                 (args (if (org-srs-time>= (org-srs-time-today) (org-srs-time-today (org-srs-item-due-time)))
