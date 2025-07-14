@@ -78,10 +78,14 @@
          (if (<= entry-beginning (point) entry-end)
              (when (and (or (not (boundp 'org-inc-continue)) (symbol-value 'org-inc-continue))
                         (not (boundp 'org-srs-reviewing-p)))
-               (let ((args (org-srs-review-rate nil)))
-                 (org-with-wide-buffer
-                  (goto-char entry-beginning)
-                  (org-inc-topic-scale-priority (alist-get 'priority-scale args)))))
+               (condition-case nil
+                   (if (and (org-srs-item-cloze-collect (org-entry-beginning-position) (org-entry-end-position)) (y-or-n-p "Transform this topic to cloze deletions?"))
+                       (org-inc-transform 'cloze)
+                     (let ((args (org-srs-review-rate nil)))
+                       (org-with-wide-buffer
+                        (goto-char entry-beginning)
+                        (org-inc-topic-scale-priority (alist-get 'priority-scale args)))))
+                 (quit (apply #'org-srs-item-review type args))))
            (goto-char entry-beginning)
            (apply #'org-srs-item-review type args))))
      90)
