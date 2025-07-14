@@ -46,7 +46,7 @@
                until (string-empty-p timestamp)
                while (org-srs-time-today-p (org-srs-timestamp-time timestamp))
                count (cl-case type
-                       (topic (eq (org-srs-table-ensure-read-field (org-srs-table-field 'action)) :review))
+                       (topic (member (org-srs-table-ensure-read-field (org-srs-table-field 'action)) '(:review :dismiss :transform)))
                        (t t))))))
 
 (cl-defmethod org-srs-review-strategy-items ((type (eql 'done)) (_strategy (eql 'rotate)) &rest args)
