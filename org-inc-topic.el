@@ -128,57 +128,65 @@
   (cl-assert (looking-at org-inc-extract-regexp))
   (replace-match (match-string 2) t t))
 
-(cl-defun org-inc-extract-1 (&optional (type (org-inc-read-item-type)))
+(cl-defun org-inc-extract-1 (&optional (target (org-inc-read-item-type)))
   (org-inc-with-embed-cloze-vars
     (let ((text (buffer-substring-no-properties (region-beginning) (region-end))))
       (cl-multiple-value-bind (id marker)
           (save-mark-and-excursion
-            (let* ((level (org-current-level))
-                   (priority (or (org-inc-priority)
-                                 (org-inc-priority-between
-                                  (cl-loop for (priority) in (org-inc-priorities)
-                                           maximize priority)
-                                  org-inc-priority-max)))
-                   (a-factor (org-inc-topic-a-factor))
-                   (a-factor-child (org-inc-a-factor-child a-factor))
-                   (a-factor-parent (org-inc-a-factor-parent a-factor))
-                   (timestamp (org-srs-item-with-current ('topic)
-                                (prog2 (org-srs-table-goto-starred-line)
-                                    (if (org-srs-timestamp= (org-srs-table-field 'timestamp) org-inc-dismiss-timestamp)
-                                        (org-srs-timestamp+ (org-srs-timestamp-now) 1 :day)
-                                      (alist-get
-                                       'timestamp
-                                       (org-srs-algorithm-repeat
-                                        'topic
-                                        (cons (cons 'a-factor a-factor)
-                                              (mapcar (apply-partially #'cons 'timestamp)
-                                                      (cl-multiple-value-list (org-inc-topic-review-timestamps)))))))
-                                  (org-inc-log-new-record :action :extract :a-factor a-factor-parent)))))
-              (org-end-of-subtree t t)
-              (org-insert-heading nil t (1+ level))
-              (let ((marker (point-marker)))
-                (org-return-and-maybe-indent)
-                (insert text)
-                (cl-values
-                 (let ((org-inc-a-factor a-factor-child))
-                   (prog1 (org-id-get-create)
-                     (org-srs-item-new type)
-                     (setf (org-srs-item-due-timestamp)
-                           (cl-case type
-                             (topic (org-srs-timestamp+ (org-srs-timestamp-now) (org-inc-a-factor-topic-initial-interval a-factor) :day))
-                             (t timestamp)))
-                     (let ((priorities (org-inc-priorities)))
-                       (org-inc-priority-set
-                        (org-inc-topic-child-priority
-                         (org-inc-priority-percentage
-                          (or (cl-position priority priorities :key #'car) (1- (length priorities)))
-                          (length priorities)))
-                        priorities))
-                     (org-srs-log-hide-drawer)))
-                 marker))))
+            (cl-etypecase target
+              (symbol
+               (let* ((level (org-current-level))
+                      (priority (or (org-inc-priority)
+                                    (org-inc-priority-between
+                                     (cl-loop for (priority) in (org-inc-priorities)
+                                              maximize priority)
+                                     org-inc-priority-max)))
+                      (a-factor (org-inc-topic-a-factor))
+                      (a-factor-child (org-inc-a-factor-child a-factor))
+                      (a-factor-parent (org-inc-a-factor-parent a-factor))
+                      (timestamp (org-srs-item-with-current ('topic)
+                                   (prog2 (org-srs-table-goto-starred-line)
+                                       (if (org-srs-timestamp= (org-srs-table-field 'timestamp) org-inc-dismiss-timestamp)
+                                           (org-srs-timestamp+ (org-srs-timestamp-now) 1 :day)
+                                         (alist-get
+                                          'timestamp
+                                          (org-srs-algorithm-repeat
+                                           'topic
+                                           (cons (cons 'a-factor a-factor)
+                                                 (mapcar (apply-partially #'cons 'timestamp)
+                                                         (cl-multiple-value-list (org-inc-topic-review-timestamps)))))))
+                                     (org-inc-log-new-record :action :extract :a-factor a-factor-parent)))))
+                 (org-end-of-subtree t t)
+                 (org-insert-heading nil t (1+ level))
+                 (let ((marker (point-marker)))
+                   (org-return-and-maybe-indent)
+                   (insert text)
+                   (cl-values
+                    (let ((org-inc-a-factor a-factor-child))
+                      (prog1 (org-id-get-create)
+                        (org-srs-item-new target)
+                        (setf (org-srs-item-due-timestamp)
+                              (cl-case target
+                                (topic (org-srs-timestamp+ (org-srs-timestamp-now) (org-inc-a-factor-topic-initial-interval a-factor) :day))
+                                (t timestamp)))
+                        (let ((priorities (org-inc-priorities)))
+                          (org-inc-priority-set
+                           (org-inc-topic-child-priority
+                            (org-inc-priority-percentage
+                             (or (cl-position priority priorities :key #'car) (1- (length priorities)))
+                             (length priorities)))
+                           priorities))
+                        (org-srs-log-hide-drawer)))
+                    marker))))
+              (integer
+               (goto-char target)
+               (org-open-line 1)
+               (let ((id (org-id-get)))
+                 (insert text)
+                 (cl-values id target)))))
         (org-srs-embed-cloze (region-beginning) (region-end) nil (concat "id:" id))
-        (cl-case type
-          (topic)
+        (cl-typecase target
+          ((or (eql topic) integer))
           (t (goto-char marker) (end-of-line)))))))
 
 ;;;###autoload
@@ -193,7 +201,36 @@ associated entry."
   (interactive)
   (require 'org-srs)
   (cond
-   ((region-active-p) (org-inc-extract-1))
+   ((region-active-p)
+    (apply
+     #'org-inc-extract-1
+     (let ((entries nil))
+       (org-map-entries
+        (lambda ()
+          (when (org-srs-property-let ((org-srs-review-cache-p nil))
+                  (org-srs-query
+                   (org-srs-query-predicate-topic)
+                   (cons (org-entry-beginning-position) (org-entry-end-position))))
+            (org-end-of-meta-data t)
+            (push
+             (cons (concat
+                    (cl-fifth (org-heading-components))
+                    ": "
+                    (buffer-substring-no-properties
+                     (point)
+                     (org-entry-end-position)))
+                   (org-entry-end-position))
+             entries)))
+        nil 'tree)
+       (ensure-list
+        (alist-get
+         (completing-read
+          "Target: "
+          (cons
+           "New"
+           (mapcar #'car entries))
+          nil t nil t '("New"))
+         entries nil nil #'string-equal)))))
    (t (when-let ((position (car (org-inc-extract-bounds))))
         (goto-char position)
         (cl-assert (looking-at org-inc-extract-regexp))
