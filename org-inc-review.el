@@ -87,23 +87,33 @@ If there is no ongoing review session, start a new one."
   (let ((org-inc-continue (if (boundp 'org-inc-continue) org-inc-continue t))
         (interactivep (called-interactively-p 'any)))
     (if-let ((item (or args org-srs-review-item)))
-        (progn
-          (cl-assert (org-srs-reviewing-p))
-          (cl-case (org-inc-item-args-type item)
-            (topic (funcall
-                    (if interactivep #'call-interactively #'funcall)
-                    #'org-srs-item-confirm-command))
-            (t (org-srs-item-with-current item
-                 (if-let ((command (org-srs-item-confirm-pending-p)))
-                     (if (and interactivep (commandp command))
-                         (call-interactively command)
-                       (apply command args))
-                   (cl-assert interactivep)
-                   (org-srs-review-rate
-                    (let ((choices (cl-loop for rating in org-srs-review-ratings
-                                            for name = (string-remove-prefix ":" (symbol-name rating))
-                                            collect (list (aref name 0) (capitalize name)))))
-                      (nth (cl-position (read-multiple-choice "Choose rating: " choices) choices) org-srs-review-ratings))))))))
+        (if (buffer-narrowed-p)
+            (progn
+              (cl-assert (org-srs-reviewing-p))
+              (cl-case (org-inc-item-args-type item)
+                (topic (funcall
+                        (if interactivep #'call-interactively #'funcall)
+                        #'org-srs-item-confirm-command))
+                (t (if-let ((command (org-srs-item-confirm-pending-p)))
+                       (if (and interactivep (commandp command))
+                           (call-interactively command)
+                         (apply command args))
+                     (cl-assert interactivep)
+                     (cl-multiple-value-bind (entry-beginning entry-end)
+                         (save-excursion
+                           (goto-char (apply #'org-srs-item-marker item))
+                           (cl-values (org-srs-entry-beginning-position) (org-srs-entry-end-position)))
+                       (if (<= entry-beginning (point) entry-end)
+                           (org-srs-item-with-current item
+                             (org-srs-review-rate
+                              (let ((choices (cl-loop for rating in org-srs-review-ratings
+                                                      for name = (string-remove-prefix ":" (symbol-name rating))
+                                                      collect (list (aref name 0) (capitalize name)))))
+                                (nth (cl-position (read-multiple-choice "Choose rating: " choices) choices) org-srs-review-ratings))))
+                         (goto-char entry-beginning)
+                         (org-narrow-to-subtree)))))))
+          (apply #'org-srs-item-goto item)
+          (org-narrow-to-subtree))
       (cl-assert interactivep)
       (org-srs-property-let ((org-srs-review-strategy '(rotate (4 . (sort (or #1=(difference due topic) #2=(difference reviewing topic) (ahead #2#) (ahead #1#)) priority))
                                                                (1 . (sort (ahead topic) priority)))))

@@ -73,8 +73,8 @@
   (org-inc-priority-update-overlays))
 
 (cl-defun org-inc-extract-update-overlays (&optional
-                                           (start (save-excursion (org-end-of-meta-data t) (point)))
-                                           (end (org-entry-end-position)))
+                                           (start (save-excursion (org-srs-entry-end-of-meta-data t) (point)))
+                                           (end (org-srs-entry-end-position)))
   (org-inc-extract-remove-overlays start end)
   (when org-inc-overlay-mode
     (org-inc-extract-put-overlays start end)))
@@ -109,7 +109,7 @@
     (org-inc-update-overlays)))
 
 (cl-defmethod org-srs-item-review :before ((_ (eql 'topic)) &rest _)
-  (org-srs-item-add-hook-once 'org-srs-item-after-confirm-hook #'org-inc-update-overlays 91))
+  (org-srs-item-add-hook-once 'org-srs-review-after-rate-hook #'org-inc-update-overlays))
 
 (define-advice org-inc-extract-1 (:around (fun &rest args) org-inc-overlay)
   (let ((marker (point-marker)))
