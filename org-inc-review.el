@@ -86,7 +86,7 @@ If there is no ongoing review session, start a new one."
   (interactive)
   (let ((org-inc-continue (if (boundp 'org-inc-continue) org-inc-continue t))
         (interactivep (called-interactively-p 'any)))
-    (if-let ((item (or args org-srs-review-item)))
+    (if-let ((item (or args (bound-and-true-p org-srs-review-item))))
         (cl-multiple-value-bind (entry-beginning entry-end)
             (save-excursion
               (goto-char (apply #'org-srs-item-marker item))
@@ -101,9 +101,11 @@ If there is no ongoing review session, start a new one."
                 (progn
                   (cl-assert (org-srs-reviewing-p))
                   (cl-case (org-inc-item-args-type item)
-                    (topic (funcall
-                            (if interactivep #'call-interactively #'funcall)
-                            #'org-srs-item-confirm-command))
+                    (topic (org-srs-property-let ((org-srs-schedule-step-learning-steps nil)
+                                                  (org-srs-schedule-step-relearning-steps nil))
+                             (funcall
+                              (if interactivep #'call-interactively #'funcall)
+                              #'org-srs-item-confirm-command)))
                     (t (if-let ((command (org-srs-item-confirm-pending-p)))
                            (if (and interactivep (commandp command))
                                (call-interactively command)

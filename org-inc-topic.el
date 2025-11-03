@@ -82,7 +82,7 @@
              (condition-case nil
                  (if (and (org-srs-item-cloze-collect entry-beginning entry-end) (y-or-n-p "Transform this topic to cloze deletions?"))
                      (org-inc-transform 'cloze)
-                   (let ((args (org-srs-review-rate nil)))
+                   (let ((args (org-srs-review-rate t)))
                      (org-with-wide-buffer
                       (goto-char entry-beginning)
                       (org-inc-topic-scale-priority (alist-get 'priority-scale args)))))

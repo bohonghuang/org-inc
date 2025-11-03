@@ -81,6 +81,8 @@
   (when (org-srs-reviewing-p)
     (org-srs-review-next)))
 
+(defvar org-srs-review-item)
+
 ;;;###autoload
 (cl-defun org-inc-postpone (&optional (time '(1 :day)))
   "Postpone the current Org-inc item by TIME."
