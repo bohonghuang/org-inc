@@ -84,14 +84,21 @@
 (defvar org-srs-review-item)
 
 ;;;###autoload
-(cl-defun org-inc-postpone (&optional (time '(1 :day)))
+(cl-defun org-inc-postpone (&optional time)
   "Postpone the current Org-inc item by TIME."
-  (interactive (list (read-from-minibuffer "Interval: " (prin1-to-string '(1 :day)) nil t)))
+  (interactive)
   (cl-assert (org-srs-reviewing-p))
-  (org-srs-item-with-current org-srs-review-item
-    (cl-case (org-inc-item-args-type)
-      (topic (org-inc-log-new-record :action :postpone))))
-  (org-srs-review-postpone time))
+  (let* ((item org-srs-review-item)
+         (hook (org-srs-item-add-hook-once
+                'org-srs-review-continue-hook
+                (lambda ()
+                  (org-srs-item-with-current item
+                    (cl-case (org-inc-item-args-type)
+                      (topic (org-inc-log-new-record :action :postpone))))))))
+    (unwind-protect (if (called-interactively-p 'any)
+                        (call-interactively #'org-srs-review-postpone)
+                      (apply #'org-srs-review-postpone time org-srs-review-item))
+      (remove-hook 'org-srs-review-continue-hook hook t))))
 
 (provide 'org-inc-item)
 ;;; org-inc-item.el ends here
