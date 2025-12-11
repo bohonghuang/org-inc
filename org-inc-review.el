@@ -78,6 +78,21 @@
 
 (defvar org-inc-continue)
 
+(defun org-inc-topic-new-p (&optional item-args)
+  (if item-args
+      (org-srs-item-with-current item-args
+        (org-inc-topic-new-p))
+    (save-excursion
+      (cl-loop with today = (org-srs-time-today)
+               initially (org-srs-table-goto-starred-line)
+               do (forward-line -1)
+               when (org-srs-time< (org-srs-timestamp-time (org-srs-table-field 'timestamp)) today)
+               return (= (org-srs-table-ensure-read-field (org-srs-table-field 'a-factor)) org-inc-a-factor)
+               finally (cl-return t)))))
+
+(cl-defmethod org-srs-review-strategy-items (type (_strategy (eql 'old-topic)) &rest args)
+  (cl-delete-if #'org-inc-topic-new-p (apply #'org-srs-review-strategy-items type 'topic args)))
+
 (defun org-inc-continue (&rest args)
   "Continue the current review process.
 
@@ -124,8 +139,9 @@ If there is no ongoing review session, start a new one."
               (apply #'org-srs-item-goto item)
               (org-narrow-to-subtree))))
       (cl-assert interactivep)
-      (org-srs-property-let ((org-srs-review-strategy '(rotate (4 . (sort (or #1=(difference due topic) #2=(difference reviewing topic) (ahead #2#) (ahead #1#)) priority))
-                                                               (1 . (sort (ahead topic) priority)))))
+      (org-srs-property-let ((org-srs-review-strategy '(or (rotate (4 . (sort (or #1=(difference due topic) #2=(difference reviewing topic) (ahead #2#) (ahead #1#)) priority))
+                                                                   (1 . (sort (ahead old-topic) priority)))
+                                                           (sort (ahead topic) priority))))
         (if current-prefix-arg
             (call-interactively #'org-srs-review-start)
           (org-srs-review-start org-inc-directory))))))
