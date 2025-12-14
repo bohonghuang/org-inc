@@ -49,12 +49,12 @@
                        (topic (member (org-srs-table-ensure-read-field (org-srs-table-field 'action)) '(:review :dismiss :transform)))
                        (t t))))))
 
-(cl-defmethod org-srs-review-strategy-items ((type (eql 'done)) (_strategy (eql 'rotate)) &rest args)
-  (apply #'org-srs-review-strategy-items type 'union (mapcar #'cdr args)))
+(cl-defmethod org-srs-review-strategy-items ((state org-srs-review-strategy-class-done) (_strategy (eql 'rotate)) &rest args)
+  (apply #'org-srs-review-strategy-items state 'union (mapcar #'cdr args)))
 
-(cl-defmethod org-srs-review-strategy-items ((type (eql 'todo)) (_strategy (eql 'rotate)) &rest args)
+(cl-defmethod org-srs-review-strategy-items ((state org-srs-review-strategy-class-todo) (_strategy (eql 'rotate)) &rest args)
   (cl-some
-   (apply-partially #'org-srs-review-strategy-items type)
+   (apply-partially #'org-srs-review-strategy-items state)
    (cl-mapl
     (lambda (cons) (setf (car cons) (cdar cons)))
     (cl-stable-sort
@@ -67,12 +67,12 @@
 (cl-defun org-srs-query-predicate-review-count (&optional (count 1))
   (lambda () (>= (org-inc-item-review-count) count)))
 
-(cl-defmethod org-srs-review-strategy-items ((_type (eql 'todo)) (_strategy (eql 'topic)) &rest _args)
+(cl-defmethod org-srs-review-strategy-items ((_type org-srs-review-strategy-class-todo) (_strategy (eql 'topic)) &rest _args)
   (defvar org-srs-review-source)
   (defvar org-srs-review-strategy-due-predicate)
   (org-srs-query `(and ,org-srs-review-strategy-due-predicate topic (not suspended)) org-srs-review-source))
 
-(cl-defmethod org-srs-review-strategy-items ((_type (eql 'done)) (_strategy (eql 'topic)) &rest _args)
+(cl-defmethod org-srs-review-strategy-items ((_type org-srs-review-strategy-class-done) (_strategy (eql 'topic)) &rest _args)
   (defvar org-srs-review-source)
   (org-srs-query `(and topic (not suspended) (review-count 1)) org-srs-review-source))
 
