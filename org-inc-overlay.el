@@ -91,7 +91,7 @@
 (define-minor-mode org-inc-overlay-mode
   "Minor mode for visualizing Org-inc entries and priorities using overlays."
   :group 'org-inc
-  (cl-assert (eq major-mode 'org-mode))
+  (cl-assert (derived-mode-p 'org-mode))
   (if org-inc-overlay-mode
       (org-inc-put-overlays)
     (org-inc-remove-overlays)))

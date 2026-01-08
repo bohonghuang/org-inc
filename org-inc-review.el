@@ -86,6 +86,7 @@
       (cl-loop with today = (org-srs-time-today)
                initially (org-srs-table-goto-starred-line)
                do (forward-line -1)
+               until (org-at-table-hline-p)
                when (org-srs-time< (org-srs-timestamp-time (org-srs-table-field 'timestamp)) today)
                return (= (org-srs-table-ensure-read-field (org-srs-table-field 'a-factor)) org-inc-a-factor)
                finally (cl-return t)))))
