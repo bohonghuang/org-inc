@@ -69,31 +69,30 @@
      priorities)))
 
 (cl-defmethod org-srs-item-review ((type (eql 'topic)) &rest args)
-  (let ((entry-beginning (copy-marker (org-srs-entry-beginning-position)))
-        (entry-end (copy-marker (org-srs-entry-end-position))))
+  (let ((entry-beginning (copy-marker (org-srs-entry-beginning-position))))
     (org-srs-item-narrow)
     (org-srs-item-add-hook-once
      'org-srs-item-after-confirm-hook
      (org-srs-review-item-hook
       (lambda ()
         (when (org-srs-reviewing-p)
-          (when (<= entry-beginning (point) entry-end)
-            (when (and (or (not (boundp 'org-inc-continue)) (symbol-value 'org-inc-continue))
-                       (not (boundp 'org-srs-reviewing-p)))
-              (condition-case nil
-                  (if (and (org-srs-item-cloze-collect entry-beginning entry-end) (y-or-n-p "Transform this topic to cloze deletions?"))
-                      (org-inc-transform 'cloze)
-                    (let ((args (org-srs-review-rate t)))
-                      (org-with-wide-buffer
-                       (goto-char entry-beginning)
-                       (org-inc-topic-scale-priority (alist-get 'priority-scale args)))))
-                (quit (apply #'org-srs-item-review type args))))))))
+          (let ((entry-end (org-with-wide-buffer (goto-char entry-beginning) (org-srs-entry-end-position))))
+            (when (<= entry-beginning (point) entry-end)
+              (when (and (or (not (boundp 'org-inc-continue)) (symbol-value 'org-inc-continue))
+                         (not (boundp 'org-srs-reviewing-p)))
+                (condition-case nil
+                    (if (and (org-srs-item-cloze-collect entry-beginning entry-end) (y-or-n-p "Transform this topic to cloze deletions?"))
+                        (org-inc-transform 'cloze)
+                      (let ((args (org-srs-review-rate t)))
+                        (org-with-wide-buffer
+                         (goto-char entry-beginning)
+                         (org-inc-topic-scale-priority (alist-get 'priority-scale args)))))
+                  (quit (apply #'org-srs-item-review type args)))))))))
      90)
     (apply (org-srs-item-confirm) type args)))
 
 (defun org-inc-topic-setup-before-item-review (type &rest args)
   (let ((entry-beginning (copy-marker (org-srs-entry-beginning-position)))
-        (entry-end (copy-marker (org-srs-entry-end-position)))
         (point nil))
     (org-srs-item-add-hook-once
      'org-srs-item-after-confirm-hook
@@ -105,10 +104,11 @@
      (org-srs-review-item-hook
       (lambda ()
         (when (org-srs-reviewing-p)
-          (unless (<= entry-beginning point entry-end)
-            (goto-char entry-beginning)
-            (org-srs-item-confirm-cleanup)
-            (apply #'org-srs-item-review type args)))))
+          (when (eq (marker-buffer point) (current-buffer))
+            (unless (org-with-wide-buffer (<= (goto-char entry-beginning) point (org-srs-entry-end-position)))
+              (goto-char entry-beginning)
+              (org-srs-item-confirm-cleanup)
+              (apply #'org-srs-item-review type args))))))
      95)))
 
 (add-hook 'org-srs-item-before-review-hook #'org-inc-topic-setup-before-item-review)
